@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Mirror
+Comment=AirPlay receiver for this computer
+Exec=mirror
+Icon=app.mirror.Mirror
+Terminal=false
+Type=Application
+Categories=AudioVideo;Network;
+StartupNotify=true
+StartupWMClass=app.mirror.Mirror
