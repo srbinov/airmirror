@@ -1,18 +1,18 @@
 # Mirror
 
-A Linux AirPlay receiver with a real window. Your iPhone or Mac sees this computer like an Apple TV: screen mirroring lands in the app, songs show cover art and track info, and audio plays through the system speakers.
+AirPlay for a Linux desktop. Your iPhone or Mac sees this computer the way it sees an Apple TV: the screen lands in a window, songs show cover art, and audio plays through the speakers.
 
-The AirPlay engine is [UxPlay](https://github.com/FDH2/UxPlay). This app starts it, embeds the video, and provides the GTK interface.
+Install it once and it shows up in the app grid like any other desktop app.
 
-## Requirements
+The AirPlay engine is [UxPlay](https://github.com/FDH2/UxPlay). Mirror starts it, embeds the video, and provides the GTK interface.
 
-- Linux with GNOME or another GTK4 desktop (tested on Ubuntu)
-- Python 3.12+
-- An iPhone, iPad, or Mac on the **same Wi-Fi** (or Ethernet) as this computer
+## Install as a desktop app
 
-## Install
+You need Linux with GNOME or another GTK4 desktop (tested on Ubuntu), Python 3.12+, and an iPhone, iPad, or Mac on the **same Wi-Fi** (or Ethernet).
 
-### 1. Packages
+### 1. Install the system packages
+
+Ubuntu / Debian:
 
 ```bash
 sudo apt update
@@ -44,40 +44,52 @@ sudo systemctl enable --now avahi-daemon
 ### 2. Clone and install the launcher
 
 ```bash
-git clone https://github.com/YOUR_USER/airmirror.git
+git clone https://github.com/srbinov/airmirror.git
 cd airmirror
 chmod +x bin/mirror scripts/install.sh scripts/uninstall.sh
 ./scripts/install.sh
 ```
 
-That puts a `mirror` command in `~/.local/bin` and a **Mirror** entry in the app grid, with the phones icon on the dock. Keep the clone where you put it; the launcher runs from that directory.
+That does three things for your user account (no `sudo`):
 
-If `~/.local/bin` is not on your `PATH`, either add it or always use the full path printed by the install script.
+- Puts a `mirror` command in `~/.local/bin`
+- Installs the **Mirror** icon
+- Adds a `.desktop` entry so **Mirror** appears in the app grid and the dock
 
-### 3. Open the app
+Keep the clone where you put it. The launcher runs the app from that directory, so don’t delete or move it after installing.
 
-Search the app grid for **Mirror**, or:
+If `~/.local/bin` is not on your `PATH`, either add it or use the full path printed by the install script.
+
+### 3. Open it
+
+Search the app grid for **Mirror**, pin it to the dock if you want, or run:
 
 ```bash
 mirror
 ```
 
+After `git pull`, just open Mirror again. Re-run `./scripts/install.sh` only if the icon or desktop entry changed.
+
 ## Use it
 
 1. Click **Start**.
 2. On iPhone or Mac, open Control Center.
-3. For the whole phone screen: **Screen Mirroring** → **Mirror**.
+3. For the whole screen: **Screen Mirroring** → **Mirror**.
 4. For music: play a song and AirPlay it to **Mirror**. Cover art, title, and artist show in the window; sound comes out of this computer.
 
-Name, optional password (6+ characters), fullscreen-on-connect, and starting volume are under **Settings**. Stop and Start again after changing them.
+An iPhone screen opens as a phone in the bottom-right of the usable desktop (above the dock or taskbar). Drag the body to move it; drag a corner or edge to resize. A Mac or widescreen stream stays in the main window.
+
+Name, optional password (6+ characters), the iPhone frame, full screen on connect, and starting volume are under **Settings**. Stop and Start again after changing them.
 
 ## Uninstall
+
+From the clone:
 
 ```bash
 ./scripts/uninstall.sh
 ```
 
-Then remove the clone if you want. Packages such as `uxplay` stay installed until you remove them with apt/dnf.
+That removes the command, icon, and app-grid entry. The git clone is left in place until you delete it. Packages such as `uxplay` stay installed until you remove them with apt or dnf.
 
 ## Troubleshooting
 
@@ -85,13 +97,13 @@ Then remove the clone if you want. Packages such as `uxplay` stay installed unti
 Confirm both devices are on the same network, `avahi-daemon` is running (`systemctl status avahi-daemon`), and a firewall is not blocking mDNS (UDP 5353) or the AirPlay ports UxPlay opens.
 
 **`kDNSServiceErr_NameConflict`**  
-Another UxPlay/Mirror instance is already advertising that name. Quit extra Mirror windows, then Start once. The app now clears leftover `uxplay` processes on Start.
+Another UxPlay/Mirror instance is already advertising that name. Quit extra Mirror windows, then Start once. Start also clears leftover `uxplay` processes.
 
 **Connected, but a blank waiting screen**  
 Use Control Center → **Screen Mirroring** for video. Playing a song to Mirror as a speaker shows Now Playing, not the home screen. After `gstreamer1.0-gtk4` is installed, Stop and Start so video can embed in this window.
 
 **Dock still shows a Python icon**  
-Run `./scripts/install.sh` again, then launch from the app grid (not a random `python3` command).
+Run `./scripts/install.sh` again, then launch from the app grid (not a one-off `python3` command).
 
 ## Development
 

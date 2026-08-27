@@ -7,6 +7,7 @@ class Settings:
     name: str = "Mirror"
     password: str = ""
     fullscreen_on_connect: bool = False
+    phone_frame: bool = True
     volume: float = 1.0
 
 

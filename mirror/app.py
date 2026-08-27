@@ -33,16 +33,16 @@ class MirrorApp(Adw.Application):
         Gtk.Window.set_default_icon_name(ICON_NAME)
 
     def _on_activate(self, *_args) -> None:
-        window = self.props.active_window
-        if window is None:
-            window = MirrorWindow(self)
-        window.set_icon_name(ICON_NAME)
-        window.present()
+        main = next((w for w in self.get_windows() if isinstance(w, MirrorWindow)), None)
+        if main is None:
+            main = MirrorWindow(self)
+            main.set_icon_name(ICON_NAME)
+        main.present_for_activate()
 
     def _on_shutdown(self, *_args) -> None:
-        window = self.props.active_window
-        if window is not None:
-            window.stop_receiver()
+        for window in self.get_windows():
+            if isinstance(window, MirrorWindow):
+                window.stop_receiver()
 
 
 def main() -> int:

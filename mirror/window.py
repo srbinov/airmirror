@@ -10,6 +10,7 @@ from gi.repository import Adw, Gdk, GLib, Gtk
 from mirror.command import Settings
 from mirror.config import cache_dir, load_settings, save_settings
 from mirror.logs import Event, EventKind, TrackInfo, parse_metadata_text
+from mirror.phone import PhoneWindow, classify_stream, should_open_phone_shell
 from mirror.service import UxPlayNotFoundError, UxPlayService
 from mirror.video import VideoSurface
 
@@ -25,6 +26,9 @@ class MirrorWindow(Adw.ApplicationWindow):
         self._did_fullscreen = False
         self._applying_ui = False
         self._has_video = False
+        self._phone: PhoneWindow | None = None
+        self._using_phone = False
+        self._phone_size = (0, 0)
         self._poll_id = 0
         self._cover_path = cache_dir() / "cover.jpg"
         self._meta_path = cache_dir() / "now-playing.txt"
@@ -179,9 +183,17 @@ class MirrorWindow(Adw.ApplicationWindow):
         self._password_row.connect("changed", self._on_settings_changed)
         group.add(self._password_row)
 
+        self._phone_row = Adw.SwitchRow(
+            title="Show as iPhone when mirroring",
+            subtitle="Hides this window and puts the screen on a phone",
+            active=self.settings.phone_frame,
+        )
+        self._phone_row.connect("notify::active", self._on_settings_changed)
+        group.add(self._phone_row)
+
         self._fs_row = Adw.SwitchRow(
             title="Full screen when someone connects",
-            subtitle="Uses this window, not a second video window",
+            subtitle="Uses this window. Wins over the iPhone frame.",
             active=self.settings.fullscreen_on_connect,
         )
         self._fs_row.connect("notify::active", self._on_settings_changed)
@@ -231,6 +243,7 @@ class MirrorWindow(Adw.ApplicationWindow):
             name=name,
             password=password,
             fullscreen_on_connect=self._fs_row.get_active(),
+            phone_frame=self._phone_row.get_active(),
             volume=float(self._volume_row.get_value()),
         )
         save_settings(self.settings)
@@ -274,9 +287,10 @@ class MirrorWindow(Adw.ApplicationWindow):
     def stop_receiver(self) -> None:
         self._stop_media_poll()
         self.service.stop()
+        self._has_video = False
+        self._dismiss_phone()
         self.video.shutdown()
         self._client = None
-        self._has_video = False
         if self._did_fullscreen:
             self.unfullscreen()
             self._did_fullscreen = False
@@ -285,6 +299,8 @@ class MirrorWindow(Adw.ApplicationWindow):
             "Receiver is off",
             "Start to appear on iPhone and Mac as an AirPlay screen.",
         )
+        if not self.get_visible():
+            self.present()
 
     def _on_uxplay_event(self, event: Event) -> None:
         if event.kind == EventKind.CLIENT:
@@ -301,6 +317,7 @@ class MirrorWindow(Adw.ApplicationWindow):
             if self._did_fullscreen:
                 self.unfullscreen()
                 self._did_fullscreen = False
+            self._dismiss_phone()
             self._client = None
             self._has_video = False
             if self.service.running:
@@ -317,20 +334,101 @@ class MirrorWindow(Adw.ApplicationWindow):
             self._toast(event.message or "UxPlay reported an error")
 
     def _on_video_frame(self) -> None:
+        if not self.service.running:
+            return
         if self._has_video:
+            if self._using_phone:
+                width, height = self._stream_size()
+                if width > 0 and height > 0 and (width, height) != self._phone_size:
+                    GLib.idle_add(self._sync_phone_size)
             return
         self._has_video = True
         GLib.idle_add(self._show_video)
 
+    def present_for_activate(self) -> None:
+        if self._using_phone and self._phone is not None and self._phone.get_visible():
+            self._phone.present()
+            return
+        self.present()
+
+    def _stream_size(self) -> tuple[int, int]:
+        paintable = self.video.picture.get_paintable()
+        if paintable is None:
+            return 0, 0
+        return paintable.get_intrinsic_width(), paintable.get_intrinsic_height()
+
     def _show_video(self) -> None:
+        if not self.service.running:
+            self._has_video = False
+            return
         self._has_video = True
         self._idle_layer.set_visible(False)
         self._now_layer.set_visible(False)
         label = f"{self._client} · mirroring" if self._client else "Mirroring"
         self._title.set_subtitle(label)
+        width, height = self._stream_size()
+        if should_open_phone_shell(
+            receiver_running=True,
+            enabled=self.settings.phone_frame,
+            fullscreen=self.settings.fullscreen_on_connect,
+            width=width,
+            height=height,
+        ):
+            self._present_phone(width, height)
+            return
+        self._dismiss_phone()
         if self.settings.fullscreen_on_connect and not self.is_fullscreen():
             self.fullscreen()
             self._did_fullscreen = True
+
+    def _present_phone(self, width: int, height: int) -> None:
+        if self._phone is None:
+            app = self.get_application()
+            if app is None:
+                return
+            self._phone = PhoneWindow(app, on_dismiss=self._on_phone_dismiss)
+        self._phone.show_stream(
+            self.video.picture.get_paintable(),
+            classify_stream(width, height),
+            width,
+            height,
+        )
+        self._using_phone = True
+        self._phone_size = (width, height)
+        if self.is_visible():
+            self.hide()
+
+    def _sync_phone_size(self) -> None:
+        if not self._using_phone or self._phone is None:
+            return
+        width, height = self._stream_size()
+        if width <= 0 or height <= 0:
+            return
+        if not should_open_phone_shell(
+            receiver_running=self.service.running,
+            enabled=self.settings.phone_frame,
+            fullscreen=self.settings.fullscreen_on_connect,
+            width=width,
+            height=height,
+        ):
+            self._dismiss_phone()
+            return
+        self._present_phone(width, height)
+
+    def _on_phone_dismiss(self) -> None:
+        self._using_phone = False
+        self._phone_size = (0, 0)
+        if not self.get_visible():
+            self.present()
+
+    def _dismiss_phone(self) -> None:
+        showing = self._using_phone
+        self._using_phone = False
+        self._phone_size = (0, 0)
+        if self._phone is not None:
+            self._phone.dismiss()
+        if showing and not self.get_visible():
+            self.present()
 
     def _show_now_playing(self, info: TrackInfo) -> None:
         if self._has_video:

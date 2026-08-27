@@ -58,6 +58,8 @@ class VideoSurface:
         return self.port
 
     def shutdown(self) -> None:
+        self._on_frame = None
+        self._on_error = None
         if self.pipeline is None:
             return
         bus = self.pipeline.get_bus()
@@ -66,8 +68,6 @@ class VideoSurface:
         self.pipeline = None
         self.port = 0
         self.picture.set_paintable(None)
-        self._on_frame = None
-        self._on_error = None
 
     def _emit_frame(self, *_args) -> None:
         if self._on_frame is not None:

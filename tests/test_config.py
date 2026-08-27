@@ -14,6 +14,7 @@ class ConfigTest(unittest.TestCase):
                 name="Studio",
                 password="abc",
                 fullscreen_on_connect=True,
+                phone_frame=False,
                 volume=0.25,
             )
             save_settings(original, path)
@@ -28,6 +29,7 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(loaded.name, "Mirror")
         self.assertEqual(loaded.password, "")
         self.assertFalse(loaded.fullscreen_on_connect)
+        self.assertTrue(loaded.phone_frame)
         self.assertEqual(loaded.volume, 1.0)
 
 

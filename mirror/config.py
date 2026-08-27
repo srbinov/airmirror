@@ -30,6 +30,7 @@ def load_settings(path: Path | None = None) -> Settings:
         name=str(data.get("name") or _DEFAULTS.name),
         password=str(data.get("password") or ""),
         fullscreen_on_connect=bool(data.get("fullscreen_on_connect", False)),
+        phone_frame=bool(data.get("phone_frame", True)),
         volume=_clamp_volume(data.get("volume", 1.0)),
     )
 
@@ -41,6 +42,7 @@ def save_settings(settings: Settings, path: Path | None = None) -> None:
         "name": settings.name,
         "password": settings.password,
         "fullscreen_on_connect": settings.fullscreen_on_connect,
+        "phone_frame": settings.phone_frame,
         "volume": _clamp_volume(settings.volume),
     }
     target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
